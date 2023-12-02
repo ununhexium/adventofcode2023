@@ -1,5 +1,8 @@
 package aoc2023
 
+import loadData
+import sanitizeInputLines
+
 class Day01 {
 
   private val DIGITS = listOf('1', '2', '3', '4', '5', '6', '7', '8', '9')
@@ -24,11 +27,6 @@ class Day01 {
     "nine" to '9'
   )
 
-  private fun sanitizeInputLines(text: String) = text
-    .split("\n")
-    .map { it.trim() }
-    .filter { it.isNotEmpty() }
-
   fun decode(text: String): Int =
     sanitizeInputLines(text)
       .sumOf { l -> "${l.first { it in DIGITS }}${l.last { it in DIGITS }}".toInt() }
@@ -37,7 +35,8 @@ class Day01 {
     sanitizeInputLines(text)
       .sumOf { l ->
         println(l)
-        val firstDigit = DIGITS_OR_NAMED.filter { l.indexOf(it.first) >= 0 }.minBy { l.indexOf(it.first) }
+        val firstDigit =
+          DIGITS_OR_NAMED.filter { l.indexOf(it.first) >= 0 }.minBy { l.indexOf(it.first) }
         val lastDigit = DIGITS_OR_NAMED.maxBy { l.lastIndexOf(it.first) }
         println("$firstDigit $lastDigit")
         val combined = "${firstDigit.second}${lastDigit.second}"
@@ -50,13 +49,14 @@ class Day01 {
 fun main() {
   println(
     Day01().decode(
-      Day01::class.java.getResource("/Day01.txt")!!.readText()
+      loadData<Day01>()
     )
   )
 
   println(
     Day01().decode2(
-      Day01::class.java.getResource("/Day01.txt")!!.readText()
+      loadData<Day01>()
     )
   )
 }
+
