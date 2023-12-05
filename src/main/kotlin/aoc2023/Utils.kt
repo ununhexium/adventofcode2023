@@ -5,4 +5,4 @@ inline fun <reified T> loadData() =
 fun sanitizeInputLines(text: String): List<String> = text
   .split("\n")
   .map { it.trim() }
-  .filter { it.isNotEmpty() }
+  .dropLastWhile { it.isEmpty() }
