@@ -1,68 +1,63 @@
 package aoc2023
 
-import aoc2023.Day07.Rank.*
+import aoc2023.Rank.*
+import aoc2023.WithJoker.J
 import loadData
 import sanitizeInputLines
 
+interface Card {
+  val ordinal: Int
+}
+
+enum class RegularCard : Card {
+  A, K, Q, J, T, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`
+}
+
+enum class WithJoker : Card {
+  A, K, Q, T, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, J
+}
+
+enum class Rank {
+  HIGH_CARD,
+  ONE_PAIR,
+  TWO_PAIRS,
+  THREE_OF_A_KIND,
+  FULL_HOUSE,
+  FOUR_OF_A_KIND,
+  FIVE_OF_A_KIND,
+}
+
+data class Hand<T : Card>(val cards: List<T>, val bet: Long)
+
+
 class Day07 {
 
-  interface Card {
-    val value: Int
-  }
-
-  enum class RegularCard(override val value: Int) : Card {
-    A(14), K(13), Q(12), J(11), T(10), `9`(9), `8`(8), `7`(7), `6`(6), `5`(5), `4`(4), `3`(3), `2`(2)
-  }
-
-  enum class WithJokerCard(override val value: Int) : Card {
-    A(14), K(13), Q(12), T(10), `9`(9), `8`(8), `7`(7), `6`(6), `5`(5), `4`(4), `3`(3), `2`(2), J(1)
-  }
-
-  enum class Rank {
-    FIVE_OF_A_KIND,
-    FOUR_OF_A_KIND,
-    FULL_HOUSE,
-    THREE_OF_A_KIND,
-    TWO_PAIRS,
-    ONE_PAIR,
-    HIGH_CARD,
-  }
-
-  data class Hand(val cards: List<RegularCard>, val bet: Long) {
-
-    companion object {
-      fun rank(hand: Hand, grouper: (List<Card>) -> List<Int>) =
-        when (grouper(hand.cards)) {
-          listOf(5) -> FIVE_OF_A_KIND
-          listOf(4, 1) -> FOUR_OF_A_KIND
-          listOf(3, 2) -> FULL_HOUSE
-          listOf(3, 1, 1) -> THREE_OF_A_KIND
-          listOf(2, 2, 1) -> TWO_PAIRS
-          listOf(2, 1, 1, 1) -> ONE_PAIR
-          // 1,1,1,1,1
-          else -> HIGH_CARD
-        }
-
-      fun getHandComparator(ranker: (Hand) -> Rank): Comparator<Hand> =
-        Comparator { o1, o2 ->
-          val o1Rank = ranker(o1)
-          val o2Rank = ranker(o2)
-          when {
-            o1Rank > o2Rank -> 1
-            o1Rank < o2Rank -> -1
-            else -> o1.cards
-              .zip(o2.cards)
-              .firstOrNull { it.first != it.second }
-              ?.let { it.first.compareTo(it.second) }
-              ?: 0
-          }
-        }
+  fun <T : Card> getHandComparator(ranker: (Hand<T>) -> Rank): Comparator<Hand<T>> =
+    Comparator { o1, o2 ->
+      val o1Rank = ranker(o1)
+      val o2Rank = ranker(o2)
+      when {
+        o1Rank > o2Rank -> -1
+        o1Rank < o2Rank -> 1
+        else -> o1.cards
+          .zip(o2.cards)
+          .firstOrNull { it.first.ordinal != it.second.ordinal }
+          ?.let { it.first.ordinal.compareTo(it.second.ordinal) }
+          ?: 0
+      }
     }
 
-    fun toString(grouper: (List<Card>) -> List<Int>): String {
-      return "Hand(rank=${rank(this, grouper)}, cards=$cards, bet=$bet)"
+  fun <T : Card> rank(cards: List<T>, grouper: (List<T>) -> List<Int>) =
+    when (grouper(cards)) {
+      listOf(5) -> FIVE_OF_A_KIND
+      listOf(4, 1) -> FOUR_OF_A_KIND
+      listOf(3, 2) -> FULL_HOUSE
+      listOf(3, 1, 1) -> THREE_OF_A_KIND
+      listOf(2, 2, 1) -> TWO_PAIRS
+      listOf(2, 1, 1, 1) -> ONE_PAIR
+      // 1,1,1,1,1
+      else -> HIGH_CARD
     }
-  }
 
   fun part1(text: String): Long {
     val lines = sanitizeInputLines(text)
@@ -78,8 +73,8 @@ class Day07 {
       )
     }
 
-    val sorted = hands.sortedWith(Hand.getHandComparator { it ->
-      Hand.rank(it) {
+    val sorted = hands.sortedWith(getHandComparator { it ->
+      rank(it.cards) {
         it.groupingBy { it }.eachCount().values.sortedDescending()
       }
     })
@@ -90,6 +85,161 @@ class Day07 {
       acc + e.first.bet * e.second
     }
   }
+
+  fun part2(text: String): Long {
+    val lines = sanitizeInputLines(text)
+
+    val hands = lines.map { l ->
+      val (cards, bet) = l.split(Regex(" +"))
+
+      Hand(
+        cards.map { c ->
+          WithJoker.valueOf(c.toString())
+        },
+        bet.toLong()
+      )
+    }
+
+    val sorted = hands.sortedWith(getHandComparator { it ->
+      rank(it.cards) {
+        val upgraded = manualUpgrade(it)
+        if (upgraded != it && it.count { it == J } > 1) {
+          println("Upgraded ${it.sorted()}")
+          println("To       $upgraded")
+        }
+        upgraded.groupingBy { it }.eachCount().values.sortedDescending()
+      }
+    })
+
+    val ranked = sorted.zip(sorted.size downTo 1)
+
+    return ranked.fold(0L) { acc, e ->
+      acc + e.first.bet * e.second
+    }
+  }
+
+  private fun bruteForceUpgrade(cards: List<WithJoker>): List<WithJoker> {
+    if (cards.groupBy { it }[J] == null) {
+      return cards
+    }
+
+    // Feeling lazy, brute forcing
+
+    val start = cards.sorted()
+    var best = start
+    var bestRank = rank(best) { it.groupingBy { it }.eachCount().values.sortedDescending() }
+
+    val firstJokerIndex = start.indexOf(J)
+
+    val candidate = start.toMutableList()
+    WithJoker.entries.filter { it != J }.forEach { alternative ->
+      candidate[firstJokerIndex] = alternative
+      val candidateRank =
+        rank(candidate) { it.groupingBy { it }.eachCount().values.sortedDescending() }
+      if (candidateRank > bestRank) {
+        best = candidate.toList()
+        bestRank = candidateRank
+      }
+    }
+
+    if (best.contains(J) && best.sorted() != cards.sorted()) {
+      return bruteForceUpgrade(best)
+    }
+
+    return best
+  }
+
+  private fun manualUpgrade(cards: List<WithJoker>): List<WithJoker> {
+    val sorted = cards.sortedDescending()
+    val jokers = sorted.count { it == J }
+    val rank = rank(sorted) { it.groupingBy { it }.eachCount().values.sortedDescending() }
+    val mut = sorted.toMutableList()
+    val groups = sorted.groupBy { it }
+
+    when (jokers) {
+      1 -> {
+        when (rank) {
+          HIGH_CARD -> {
+            // make a pair
+            mut[0] = mut[1]
+          }
+
+          ONE_PAIR -> {
+            // make a triple
+            val best = groups.entries.first { it.value.size == 2 }.key
+            mut[0] = best
+          }
+
+          TWO_PAIRS -> {
+            // make full house
+            val best = groups.entries.first { it.value.size == 2 }.key
+            mut[0] = best
+          }
+
+          THREE_OF_A_KIND -> {
+            // make quad
+            val best = groups.entries.first { it.value.size == 3 }.key
+            mut[0] = best
+          }
+
+          FULL_HOUSE -> error("Not possible")
+          FOUR_OF_A_KIND -> {
+            // make quint
+            val best = groups.entries.first { it.value.size == 4 }.key
+            mut[0] = best
+          }
+
+          FIVE_OF_A_KIND -> error("Not possible")
+        }
+      }
+
+      2 -> {
+        when (rank) {
+          HIGH_CARD -> error("Not possible")
+
+          ONE_PAIR -> {
+            val best = groups.entries.first { it.value.size == 2 }.key
+            if (best == J) {
+              // make a triple
+              val alt = groups.entries.first { it.value.size == 1 }.key
+              val altIndex = sorted.indexOf(alt)
+              mut[0] = mut[altIndex]
+              mut[1] = mut[altIndex]
+            } else {
+              // make a quad
+              mut[0] = best
+              mut[1] = best
+            }
+          }
+
+          TWO_PAIRS -> {
+            // make full house
+            val mvp = groups.entries.first { it.value.size == 2 }.key
+            mut[0] = mvp
+          }
+
+          THREE_OF_A_KIND -> {
+            // make quad
+            val mvp = groups.entries.first { it.value.size == 3 }.key
+            mut[0] = mvp
+          }
+
+          FULL_HOUSE -> error("Not possible")
+          FOUR_OF_A_KIND -> {
+            // make quint
+            val mvp = groups.entries.first { it.value.size == 4 }.key
+            mut[0] = mvp
+          }
+
+          FIVE_OF_A_KIND -> error("Not possible")
+        }
+      }
+      // 0
+      else -> cards
+    }
+
+    return mut
+  }
 }
 
 fun main() {
@@ -99,7 +249,7 @@ fun main() {
     error("Something changed in the refactoring")
   }
 
-  println(
-    result1
-  )
+  println(result1)
+
+  println(Day07().part2(loadData<Day07>()))
 }
