@@ -1,13 +1,21 @@
 package aoc2023
 
-import loadData
 import aoc2023.Day07.Rank.*
+import loadData
 import sanitizeInputLines
 
 class Day07 {
 
-  enum class Card {
-    A, K, Q, J, T, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`
+  interface Card {
+    val value: Int
+  }
+
+  enum class RegularCard(override val value: Int) : Card {
+    A(14), K(13), Q(12), J(11), T(10), `9`(9), `8`(8), `7`(7), `6`(6), `5`(5), `4`(4), `3`(3), `2`(2)
+  }
+
+  enum class WithJokerCard(override val value: Int) : Card {
+    A(14), K(13), Q(12), T(10), `9`(9), `8`(8), `7`(7), `6`(6), `5`(5), `4`(4), `3`(3), `2`(2), J(1)
   }
 
   enum class Rank {
@@ -20,36 +28,40 @@ class Day07 {
     HIGH_CARD,
   }
 
-  data class Hand(val cards: List<Card>, val bet: Long) : Comparable<Hand> {
+  data class Hand(val cards: List<RegularCard>, val bet: Long) {
 
-    val rank =
-      when (cards.groupingBy { it }.eachCount().values.sortedDescending()) {
-        listOf(5) -> FIVE_OF_A_KIND
-        listOf(4, 1) -> FOUR_OF_A_KIND
-        listOf(3, 2) -> FULL_HOUSE
-        listOf(3, 1, 1) -> THREE_OF_A_KIND
-        listOf(2, 2, 1) -> TWO_PAIRS
-        listOf(2, 1, 1, 1) -> ONE_PAIR
-        // setOf(1,1,1,1,1)
-        else -> HIGH_CARD
-      }
+    companion object {
+      fun rank(hand: Hand, grouper: (List<Card>) -> List<Int>) =
+        when (grouper(hand.cards)) {
+          listOf(5) -> FIVE_OF_A_KIND
+          listOf(4, 1) -> FOUR_OF_A_KIND
+          listOf(3, 2) -> FULL_HOUSE
+          listOf(3, 1, 1) -> THREE_OF_A_KIND
+          listOf(2, 2, 1) -> TWO_PAIRS
+          listOf(2, 1, 1, 1) -> ONE_PAIR
+          // 1,1,1,1,1
+          else -> HIGH_CARD
+        }
 
-    override fun compareTo(other: Hand): Int =
-      when {
-        this.rank > other.rank -> 1
-        this.rank < other.rank -> -1
-        else -> this.cards
-          .zip(other.cards)
-          .firstOrNull { it.first != it.second }
-          ?.let { it.first.compareTo(it.second) }
-          ?: 0
-      }
-
-    override fun toString(): String {
-      return "Hand(rank=$rank, cards=$cards, bet=$bet)"
+      fun getHandComparator(ranker: (Hand) -> Rank): Comparator<Hand> =
+        Comparator { o1, o2 ->
+          val o1Rank = ranker(o1)
+          val o2Rank = ranker(o2)
+          when {
+            o1Rank > o2Rank -> 1
+            o1Rank < o2Rank -> -1
+            else -> o1.cards
+              .zip(o2.cards)
+              .firstOrNull { it.first != it.second }
+              ?.let { it.first.compareTo(it.second) }
+              ?: 0
+          }
+        }
     }
 
-
+    fun toString(grouper: (List<Card>) -> List<Int>): String {
+      return "Hand(rank=${rank(this, grouper)}, cards=$cards, bet=$bet)"
+    }
   }
 
   fun part1(text: String): Long {
@@ -60,13 +72,17 @@ class Day07 {
 
       Hand(
         cards.map { c ->
-          Card.valueOf(c.toString())
+          RegularCard.valueOf(c.toString())
         },
         bet.toLong()
       )
     }
 
-    val sorted = hands.sorted()
+    val sorted = hands.sortedWith(Hand.getHandComparator { it ->
+      Hand.rank(it) {
+        it.groupingBy { it }.eachCount().values.sortedDescending()
+      }
+    })
 
     val ranked = sorted.zip(sorted.size downTo 1)
 
@@ -77,9 +93,13 @@ class Day07 {
 }
 
 fun main() {
+  val result1 = Day07().part1(loadData<Day07>())
+
+  if (result1 != 248217452L) {
+    error("Something changed in the refactoring")
+  }
+
   println(
-    Day07().part1(
-      loadData<Day07>()
-    )
+    result1
   )
 }
