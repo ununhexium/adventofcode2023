@@ -102,7 +102,7 @@ class Day07 {
 
     val sorted = hands.sortedWith(getHandComparator { it ->
       rank(it.cards) {
-        val upgraded = manualUpgrade(it)
+        val upgraded = bruteForceUpgrade(it)
         if (upgraded != it && it.count { it == J } > 1) {
           println("Upgraded ${it.sorted()}")
           println("To       $upgraded")
@@ -129,15 +129,13 @@ class Day07 {
     var best = start
     var bestRank = rank(best) { it.groupingBy { it }.eachCount().values.sortedDescending() }
 
-    val firstJokerIndex = start.indexOf(J)
-
-    val candidate = start.toMutableList()
-    WithJoker.entries.filter { it != J }.forEach { alternative ->
-      candidate[firstJokerIndex] = alternative
-      val candidateRank =
-        rank(candidate) { it.groupingBy { it }.eachCount().values.sortedDescending() }
+    val candidates = enumerate(start.toMutableList())
+    candidates.forEach { alternative ->
+      val candidateRank = rank(alternative) {
+        it.groupingBy { it }.eachCount().values.sortedDescending()
+      }
       if (candidateRank > bestRank) {
-        best = candidate.toList()
+        best = alternative
         bestRank = candidateRank
       }
     }
@@ -147,6 +145,21 @@ class Day07 {
     }
 
     return best
+  }
+
+  private fun enumerate(cards: MutableList<WithJoker>): List<List<WithJoker>> {
+    if (!cards.contains(J)) {
+      return listOf(cards)
+    }
+    val alternatives = mutableListOf<List<WithJoker>>()
+    val firstJoker = cards.indexOf(J)
+    WithJoker.entries.filter { it != J }.forEach { alternative ->
+      val changed = cards.toMutableList()
+      changed[firstJoker] = alternative
+      alternatives.addAll(enumerate(changed))
+    }
+
+    return alternatives
   }
 
   private fun manualUpgrade(cards: List<WithJoker>): List<WithJoker> {
