@@ -30,7 +30,7 @@ class Day10Test : FunSpec({
         .L--J.L--J.
         ...........
       """.trimIndent(),
-      S, E
+      S, Day10.Dir::left
     ).shouldBe(4)
   }
   test("part2 B") {
@@ -42,7 +42,7 @@ class Day10Test : FunSpec({
         |F--J
         LJ...
       """.trimIndent(),
-      S, E
+      S, Day10.Dir::left
     ).shouldBe(1)
   }
   test("part2 C") {
@@ -58,7 +58,7 @@ class Day10Test : FunSpec({
         .L--JL--J.
         ..........
       """.trimIndent(),
-      S, E
+      S, Day10.Dir::left
     ).shouldBe(4)
   }
   test("part2 D") {
@@ -75,7 +75,7 @@ class Day10Test : FunSpec({
         ....FJL-7.||.||||...
         ....L---J.LJ.LJLJ...
       """.trimIndent(),
-      S, E
+      S, Day10.Dir::right
     ).shouldBe(8)
   }
   test("part2 E") {
@@ -92,7 +92,7 @@ class Day10Test : FunSpec({
         L.L7LFJ|||||FJL7||LJ
         L7JLJL-JLJLJL--JLJ.L
       """.trimIndent(),
-      S, W
+      S, Day10.Dir::right
     ).shouldBe(10)
   }
 })
